@@ -243,9 +243,17 @@ func (api *GraphGateway) loadRequestIntoSharedBlockstoreAndBlocksGateway(ctx con
 	if err := remPath.IsValid(); err != nil {
 		return nil, nil, err
 	}
-	imPath, err := gateway.NewImmutablePath(remPath)
-	if err != nil {
-		return nil, nil, err
+	carRequestPath := remPath.String()
+	nParams := len(params)
+	if nParams > 0 {
+		carRequestPath += "?"
+	}
+	for k, v := range params {
+		nParams--
+		carRequestPath += k + "=" + v
+		if nParams > 0 {
+			carRequestPath += "&"
+		}
 	}
 
 	bstore := api.bstore
@@ -266,11 +274,11 @@ func (api *GraphGateway) loadRequestIntoSharedBlockstoreAndBlocksGateway(ctx con
 		defer func() {
 			if r := recover(); r != nil {
 				// TODO: move to Debugw?
-				graphLog.Errorw("Recovered fetcher error", "path", imPath.String(), "error", r)
+				graphLog.Errorw("Recovered fetcher error", "path", carRequestPath, "error", r)
 			}
 		}()
 		metrics.carFetchAttemptMetric.Inc()
-		err := api.fetcher.Fetch(ctx, imPath.String(), func(resource string, reader io.Reader) error {
+		err := api.fetcher.Fetch(ctx, carRequestPath, func(resource string, reader io.Reader) error {
 			cr, err := car.NewCarReader(reader)
 			if err != nil {
 				return err
@@ -291,7 +299,7 @@ func (api *GraphGateway) loadRequestIntoSharedBlockstoreAndBlocksGateway(ctx con
 			}
 		})
 		if err != nil {
-			graphLog.Debugw("car Fetch failed", "path", imPath.String(), "error", err)
+			graphLog.Debugw("car Fetch failed", "path", carRequestPath, "error", err)
 		}
 		if err := carFetchingExch.Close(); err != nil {
 			graphLog.Errorw("carFetchingExch.Close()", "error", err)
